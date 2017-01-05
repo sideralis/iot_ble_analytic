@@ -7,23 +7,14 @@ Created on Dec 29, 2016
 import paho.mqtt.client as mqtt
 import json
 from data_generate import MyData, MyPosition
-from math import sqrt, acos, sin, cos, pi
+from math import acos, sin, cos, pi
 from datetime import datetime
 import threading
 import matplotlib.pyplot as plt
+from time import sleep
 
 allMyData = MyData()
-def calculate():
-    threading.Timer(5.0, calculate).start()
-    
-    #allMyData.display()
-    getposition()
-    #plt.axis([-256, 256, -256, 256])
-    #hl.set_xdata([e.x for e in mypos])   
-    #hl.set_ydata([e.y for e in mypos]) 
-    #plt.draw()  
- 
-    
+
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code "+str(rc))
 
@@ -34,9 +25,21 @@ def on_connect(client, userdata, flags, rc):
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
     #allMyData.process(msg.payload)
+    print("message {}".format(msg))
     parsed_json = json.loads(str(msg.payload))
     my_time = datetime.strptime(parsed_json["date"],'%Y-%m-%dT%H:%M:%SZ')
     allMyData.process(parsed_json["from"], parsed_json["to"], parsed_json["rssi"], my_time)
+        
+def calculate():
+    
+    #allMyData.display()
+    getposition()
+    #plt.axis([-256, 256, -256, 256])
+    #hl.set_xdata([e.x for e in mypos])   
+    #hl.set_ydata([e.y for e in mypos]) 
+    #plt.draw()  
+ 
+    
 
 def getposition():
     global mypos
@@ -64,6 +67,7 @@ def getposition():
                 if (len(distance) != 0):
                     d = sum(distance)/float(len(distance))
                     myposition = MyPosition(device[0].id, 0, d)
+                    mypos.append(myposition)
             else:                
                 #  On cherche phy
                 #  le point 1 a pour coordonnee polaire dist[0][1], pi/2
@@ -90,34 +94,34 @@ def getposition():
                     angle = acos((d01 * d01 + d02 * d02 - d12 * d12) / (2 * d01 * d02))
                     phy = pi / 2 - angle
                     myposition = MyPosition(device[i].id, device[i].rssi * cos(phy), device[i].rssi * sin(phy))
-            mypos.append(myposition)
+                    mypos.append(myposition)
                
         for e in mypos:
             print("  device={} x={} y={}".format(e.id, e.x, e.y))  
         
-        #plt.plot([e.x for e in mypos], [e.y for e in mypos], 'ro')
-        #plt.axis([-6, 6, -6, 6])
-        #plt.show() 
+        plt.plot([e.x for e in mypos], [e.y for e in mypos], 'ro')
+        plt.axis([-6, 6, -6, 6])
+        plt.show() 
 
 def main():
     # open a plot
-    #hl, = plt.plot([],[],'ro')
+    hl, = plt.plot([],[],'ro')
     
-    # Start a thread to calculate positions
-    threading.Timer(5.0, calculate).start()
-    
-    # Subscribe to messages
+    # Subscribe to MQTT messages
+    print("Subscribing to messages")
     client = mqtt.Client()
     client.on_connect = on_connect
     client.on_message = on_message
     client.connect("iot.eclipse.org", 1883, 60)
+    client.loop_start()
+    sleep(1)
 
-    # Blocking call that processes network traffic, dispatches callbacks and
-    # handles reconnecting.
-    # Other loop*() functions are available that give a threaded interface and a
-    # manual interface.
-    client.loop_forever()
+    print("Calculating positions")
+    while True:
+        getposition()
+        sleep(1)
     
+ 
     print("end")
     
     
