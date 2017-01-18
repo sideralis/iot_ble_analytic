@@ -25,6 +25,7 @@ class MyDevice(object):
 class MyData(object):
 
     first_date = None
+    first_id = None
     
     def __init__(self):
         self.time = [None] * 1000
@@ -67,24 +68,26 @@ class MyData(object):
         if self.first_date == None:
             self.first_date = date_time
             
-        offset = date_time -self.first_date
+        offset = date_time - self.first_date
         offset_in_sec = offset.total_seconds()
-        time = int(offset_in_sec / 5)
-        self.index = time
-        #print("Debug {} {} {} {}".format(time,fromid,toid,rssi))
+        temps = int(offset_in_sec / 5)
+        self.index = temps
+        #print("Debug {} {} {} {}".format(temps,fromid,toid,rssi))
         
-        if (self.time[time] == None):
+        if (self.time[temps] == None):
             # No yet device for this time so we add the first one   
-            #print("Debug: adding {}".format(fromid))       
+            #print("Debug: adding {}".format(fromid))   
+            if (self.first_id == None):
+                self.first_id = fromid    
             myDevice = MyDevice(fromid)
             myRSSI = MyRSSI(toid, rssi)
             myDevice.addrssi(myRSSI)
-            self.time[time] = []
-            self.time[time].append(myDevice)
+            self.time[temps] = []
+            self.time[temps].append(myDevice)
         else:
             #print("Debug: some devices exist")
             # We have already a least one device, check if we should modify it or add it as a new one
-            for e in self.time[time]:
+            for e in self.time[temps]:
                 #print("Debug: checking {}".format(e.id))
                 e_found = False
                 if e.id == fromid:
@@ -110,7 +113,10 @@ class MyData(object):
                 myDevice = MyDevice(fromid)
                 myRSSI = MyRSSI(toid, rssi)
                 myDevice.addrssi(myRSSI)
-                self.time[time].append(myDevice)
+                if (fromid == self.first_id):
+                    self.time[temps].insert(0, myDevice)
+                else:
+                    self.time[temps].append(myDevice)
 
             
 class MyPosition(object):

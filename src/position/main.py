@@ -9,7 +9,6 @@ import json
 from data_generate import MyData, MyPosition
 from math import acos, sin, cos, pi
 from datetime import datetime
-import threading
 import matplotlib.pyplot as plt
 from time import sleep
 
@@ -20,12 +19,11 @@ def on_connect(client, userdata, flags, rc):
 
     # Subscribing in on_connect() means that if we lose the connection and
     # reconnect then subscriptions will be renewed.
-    client.subscribe("campusid/edison/json")
+    client.subscribe("campusid/edison/rssi")
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
     #allMyData.process(msg.payload)
-    print("message {}".format(msg))
     parsed_json = json.loads(str(msg.payload))
     my_time = datetime.strptime(parsed_json["date"],'%Y-%m-%dT%H:%M:%SZ')
     allMyData.process(parsed_json["from"], parsed_json["to"], parsed_json["rssi"], my_time)
@@ -42,8 +40,7 @@ def calculate():
     
 
 def getposition():
-    global mypos
-    
+    mypos = None
     # let's calculate
     if allMyData.index >= 1:
         t = allMyData.index-1
@@ -96,16 +93,17 @@ def getposition():
                     myposition = MyPosition(device[i].id, device[i].rssi * cos(phy), device[i].rssi * sin(phy))
                     mypos.append(myposition)
                
-        for e in mypos:
-            print("  device={} x={} y={}".format(e.id, e.x, e.y))  
-        
-        plt.plot([e.x for e in mypos], [e.y for e in mypos], 'ro')
-        plt.axis([-6, 6, -6, 6])
-        plt.show() 
+     
+    return mypos   
 
 def main():
     # open a plot
-    hl, = plt.plot([],[],'ro')
+    plt.ion()
+    hl, = plt.plot([0],[0],'ro')
+    plt.axis([-256, 256, -256, 256])
+    plt.pause(0.001)
+    plt.show()
+    #plt.draw()
     
     # Subscribe to MQTT messages
     print("Subscribing to messages")
@@ -118,8 +116,19 @@ def main():
 
     print("Calculating positions")
     while True:
-        getposition()
-        sleep(1)
+        pos = getposition()
+        if pos is not None:
+            print ('Updating plot')
+            for e in pos:
+                print("  device={} x={} y={}".format(e.id, e.x, e.y))  
+            #hl.set_xdata([e.x for e in pos[0:3]])   
+            #plt.pause(0.001)
+            #hl.set_ydata([e.y for e in pos][0:3]) 
+            #plt.pause(0.001)
+            hl, = plt.plot([e.x for e in pos],[e.y for e in pos],'ro')
+            plt.pause(0.001)
+            plt.draw()  
+        sleep(2)
     
  
     print("end")
